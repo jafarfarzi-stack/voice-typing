@@ -12,28 +12,59 @@ echo    Installer
 echo ============================================================
 echo.
 
-REM ---------- 1) find python ----------
+REM ---------- 1) find a suitable python ----------
+REM We need 3.9 - 3.13. PyAudio and Vosk have no prebuilt wheels for 3.14+,
+REM so on newer interpreters pip has to compile them and fails.
 set "PY="
-py -3 -c "import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)" >nul 2>&1
-if not errorlevel 1 set "PY=py -3"
+set "PYVER="
+
+REM Prefer py -3.13 .. -3.9, then plain py -3 / python (only if in range)
+for %%V in (3.13 3.12 3.11 3.10 3.9) do (
+    if not defined PY (
+        py -%%V -c "import sys; sys.exit(0 if (3,9)<=sys.version_info[:2]<=(3,13) else 1)" >nul 2>&1
+        if not errorlevel 1 set "PY=py -%%V"
+    )
+)
+
 if not defined PY (
-    python -c "import sys; sys.exit(0 if sys.version_info>=(3,9) else 1)" >nul 2>&1
-    if not errorlevel 1 set "PY=python"
+    py -3 -c "import sys; sys.exit(0 if (3,9)<=sys.version_info[:2]<=(3,13) else 1)" >nul 2>&1
+    if not errorlevel 1 set "PY=py -3"
 )
 if not defined PY (
-    echo [X] Python 3.9 or newer is required but was not found.
+    python -c "import sys; sys.exit(0 if (3,9)<=sys.version_info[:2]<=(3,13) else 1)" >nul 2>&1
+    if not errorlevel 1 set "PY=python"
+)
+
+if not defined PY (
+    echo [X] No suitable Python found.
     echo.
-    echo     1) Download Python from:  https://www.python.org/downloads/
+    echo     You need Python 3.9 to 3.13. Python 3.14 and newer do not have
+    echo     prebuilt packages for PyAudio, which this app needs.
+    echo.
+    echo     1) Download Python 3.12 from:  https://www.python.org/downloads/
     echo     2) IMPORTANT: tick "Add python.exe to PATH" during setup
     echo     3) Run this file again
+    echo.
+    echo     If you already have 3.14, you can run:
+    echo         py -3.12 -m venv .venv
+    echo         .venv\Scripts\python -m pip install -r requirements.txt
+    echo         .venv\Scripts\python app.py
     echo.
     pause
     exit /b 1
 )
 for /f "tokens=*" %%v in ('%PY% -c "import sys;print(sys.version.split()[0])"') do set "PYVER=%%v"
-echo [1/5] Python %PYVER% found.
+echo [1/5] Python %PYVER% found (%PY%).
 
 REM ---------- 2) virtual environment ----------
+REM A venv left over from a different interpreter version is unusable.
+if exist ".venv\pyvenv.cfg" (
+    findstr /c:"version %PYVER%" ".venv\pyvenv.cfg" >nul 2>&1
+    if errorlevel 1 (
+        echo [2/5] Removing .venv - it was made with a different Python version ...
+        rmdir /s /q ".venv"
+    )
+)
 if exist ".venv\Scripts\python.exe" (
     echo [2/5] Virtual environment already exists - reusing it.
 ) else (
@@ -101,9 +132,15 @@ exit /b 0
 
 :pipfail
 echo.
-echo [X] Package installation failed. Check your internet connection and retry.
-echo     If the problem is a build error, try:
-echo         %VPY% -m pip install pyaudio --only-binary=:all:
+echo [X] Package installation failed.
+echo.
+echo     Most likely cause: you are on Python 3.14 or newer, which has no
+echo     prebuilt packages for PyAudio. Delete the .venv folder and run
+echo     this file again, or use Python 3.12 directly:
+echo.
+echo         py -3.12 -m venv .venv
+echo         .venv\Scripts\python -m pip install -r requirements.txt
+echo         .venv\Scripts\python app.py
 echo.
 pause
 exit /b 1
