@@ -1,0 +1,76 @@
+# --- مدل‌های صوتی: چند صد مگابایت، هرگز نباید کامیت شوند ---
+models/
+*.bin
+*.onnx
+
+# --- تنظیمات و لاگ کاربر ---
+.voice_typing_config.json
+.voice_typing.log
+*.log
+
+# --- کلید و توکن: هرگز کامیت نشود ---
+.env
+*.pem
+*.key
+id_rsa*
+gh_token*
+token*
+secrets*.json
+
+# --- پایتون ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- محیط مجازی ---
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- ابزارها ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- سیستم‌عامل ---
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# --- فایل‌های موقت کاربر ---
+*.tmp
+*.bak
+*.txt.bak
+desktop/

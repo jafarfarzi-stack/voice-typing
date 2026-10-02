@@ -1,0 +1,17 @@
+# --- هسته برنامه (الزامی) ---
+pyaudio>=0.2.13
+numpy>=1.24
+Pillow>=10.0
+pyperclip>=1.8
+pystray>=0.19
+keyboard>=0.13
+
+# --- موتور آفلاین ۱: Whisper (پیشنهادی، دقت بالا) ---
+faster-whisper>=1.0
+
+# --- موتور آفلاین ۲: Vosk (سبک و سریع) ---
+vosk>=0.3.45
+
+# --- اختیاری ---
+# SpeechRecognition>=3.10   # فقط برای حالت آنلاین Google
+# python-docx>=1.1           # فقط برای خروجی Word
