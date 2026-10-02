@@ -3,6 +3,13 @@ models/
 *.bin
 *.onnx
 
+# --- خروجی ساخت (exe) ---
+build/
+dist/
+*.spec
+*.exe
+*.msi
+
 # --- تنظیمات و لاگ کاربر ---
 .voice_typing_config.json
 .voice_typing.log

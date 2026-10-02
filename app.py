@@ -571,7 +571,8 @@ class VoiceApp:
             text=i18n.tr("btn_stop" if on else "btn_start", self.lang.get()),
             bg=COLORS["danger"] if on else COLORS["primary"],
         )
-        self._post(self.spinner, "start" if on else "stop")
+        # Progressbar یک شیء است، نه تابع؛ باید متدش را صدا بزنیم
+        self._post(self.spinner.start if on else self.spinner.stop)
 
     def _on_engine_change(self, _event=None):
         self.engine_name = self.engine_var.get()

@@ -45,6 +45,20 @@
 
 ## نصب
 
+### روش سریع (ویندوز) — بدون دستور
+
+1. [کد را دانلود کنید](https://github.com/jafarfarzi-stack/voice-typing/archive/refs/heads/main.zip) و از حالت فشرده خارج کنید
+2. روی **`install.bat`** دابل‌کلیک کنید
+
+کاری که انجام می‌دهد: محیط مجازی می‌سازد، پکیج‌ها را نصب می‌کند، میان‌بر دسکتاپ
+می‌سازد و برنامه را اجرا می‌کند.
+
+> **پیش‌نیاز:** [پایتون 3.9 یا بالاتر](https://www.python.org/downloads/) نصب باشد.
+> موقع نصب حتماً تیک **"Add python.exe to PATH"** را بزنید.
+> پایتون ندارید؟ از نسخه `.exe` استفاده کنید (بخش پایین).
+
+### روش دستی
+
 ```bash
 git clone https://github.com/jafarfarzi-stack/voice-typing.git
 cd voice-typing
@@ -55,7 +69,7 @@ python app.py
 بار اول، وقتی F8 را بزنید، برنامه می‌پرسد که مدل را دانلود کند یا نه.
 بعد از آن دیگر هیچ اینترنتی لازم نیست.
 
-اگر پکیج‌ها را دستی نصب می‌کنید:
+### اگر پکیج‌ها را دستی نصب می‌کنید
 
 ```bash
 pip install pyaudio numpy Pillow pyperclip pystray keyboard faster-whisper vosk
@@ -65,12 +79,13 @@ pip install pyaudio numpy Pillow pyperclip pystray keyboard faster-whisper vosk
 > [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)
 > را نصب کنید.
 
-### میان‌بر دسکتاپ (ویندوز)
+### حذف نصب
 
 ```powershell
-# در پوشه پروژه اجرا کنید
-powershell -ExecutionPolicy Bypass -File make_shortcut.ps1
+.\uninstall.bat
 ```
+
+تنظیمات و متن شما را پاک نمی‌کند (در `%USERPROFILE%` می‌مانند).
 
 ---
 

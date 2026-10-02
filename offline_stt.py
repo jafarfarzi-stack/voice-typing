@@ -459,7 +459,7 @@ def build_engine(name, lang="fa", model_dir=None, options=None):
 
 
 def backend_available(name):
-    """آیا پکیج این موتور نصب است"""
+    """آیا پکیج این موتور نصب و قابل بارگذاری است"""
     checks = {
         "whisper": "faster_whisper",
         "vosk": "vosk",
@@ -472,6 +472,10 @@ def backend_available(name):
         __import__(mod)
         return True
     except ImportError:
+        return False
+    except Exception as exc:
+        # نمونه‌اش: بسته‌بندی با PyInstaller که DLLهای Vosk را پیدا نمی‌کند
+        log.warning("Backend %s is present but failed to load: %s", name, exc)
         return False
 
 

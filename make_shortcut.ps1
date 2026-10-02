@@ -8,6 +8,7 @@
 
 param(
     [string]$Name = "Voice Typing",
+    [string]$PythonPath = "",
     [switch]$Remove
 )
 
@@ -15,38 +16,46 @@ $ErrorActionPreference = "Stop"
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppPath = Join-Path $ProjectDir "app.py"
 $IconPath = Join-Path $ProjectDir "icon.ico"
-
-function Get-PythonPath {
-    $candidates = @()
-    foreach ($c in @("py", "python", "python3")) {
-        $cmd = Get-Command $c -ErrorAction SilentlyContinue
-        if ($cmd) { $candidates += $cmd.Source }
-    }
-    if (-not $candidates) {
-        throw "هیچ مفسر پایتونی پیدا نشد. پایتون را نصب کنید یا با -PythonPath مشخص کنید."
-    }
-    return $candidates[0]
-}
+$VenvPython = Join-Path $ProjectDir ".venv\Scripts\pythonw.exe"
 
 # --- حذف میان‌بر ---
 if ($Remove) {
     $lnk = Join-Path ([Environment]::GetFolderPath("Desktop")) "$Name.lnk"
     if (Test-Path $lnk) {
         Remove-Item $lnk -Force
-        Write-Host "میان‌بر حذف شد: $lnk" -ForegroundColor Yellow
+        Write-Host "Shortcut removed: $lnk" -ForegroundColor Yellow
     } else {
-        Write-Host "میان‌بری با این نام پیدا نشد."
+        Write-Host "No shortcut with that name found."
     }
     return
 }
 
 # --- بررسی وجود برنامه ---
 if (-not (Test-Path $AppPath)) {
-    throw "app.py پیدا نشد: $AppPath"
+    throw "app.py not found: $AppPath"
 }
 
-$python = Get-PythonPath
-Write-Host "پایتون: $python"
+# --- پیدا کردن پایتون ---
+# اولویت: مسیر داده‌شده، بعد پایتونِ محیط مجازی، بعد مفسرهای سیستم
+if ($PythonPath -and (Test-Path $PythonPath)) {
+    $python = $PythonPath
+}
+elseif (Test-Path $VenvPython) {
+    $python = $VenvPython
+}
+else {
+    $found = $null
+    foreach ($c in @("py", "python", "python3")) {
+        $cmd = Get-Command $c -ErrorAction SilentlyContinue
+        if ($cmd) { $found = $cmd.Source; break }
+    }
+    if (-not $found) {
+        throw "No Python interpreter found. Install Python 3.9+ from python.org"
+    }
+    $python = $found
+}
+
+Write-Host "Python: $python"
 
 $desktop = [Environment]::GetFolderPath("Desktop")
 $shortcutPath = Join-Path $desktop "$Name.lnk"
@@ -64,5 +73,5 @@ $shortcut.WindowStyle = 1
 $shortcut.Save()
 
 Write-Host ""
-Write-Host "میان‌بر ساخته شد: $shortcutPath" -ForegroundColor Green
-Write-Host "برای حذف:  .\make_shortcut.ps1 -Remove"
+Write-Host "Shortcut created: $shortcutPath" -ForegroundColor Green
+Write-Host "To remove it:  .\make_shortcut.ps1 -Remove"
