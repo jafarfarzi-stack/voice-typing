@@ -6,11 +6,48 @@
 > **زبان رابط** از combo «زبان» پیروی می‌کند: `فارسی` → فارسی، `English` → English.
 > با تغییر زبان، تمام برچسب‌ها، دکمه‌ها، پیام‌ها و متن راهنما همان لحظه عوض می‌شوند.
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.9%2B-3776AB" alt="Python">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/offline-yes-brightgreen" alt="Offline">
+  <img src="https://img.shields.io/badge/UI-Persian%20%7C%20English-8A2BE2" alt="Bilingual">
+</p>
+
+---
+
+## About
+
+**چیست:** یک برنامه دسکتاپ که صدای شما را می‌گیرد، به متن تبدیل می‌کند و مستقیم در
+هر برنامه‌ای که باز است تایپ می‌کند — بدون اینترنت.
+
+**چه کسی ساخته:** ساخته‌شده برای استفاده روزمره فارسی‌زبانان؛ نیاز به دانش فنی خاصی ندارد.
+
+**چرا آفلاین:** صدای شما به هیچ سروری ارسال نمی‌شود. مدل بعد از یک‌بار دانلود روی
+دیسک می‌نشیند و از آن به بعد برنامه کاملاً آفلاین کار می‌کند — حتی در هواپیما.
+
+**برای چه کسی:** کسانی که زیاد می‌نویسند و می‌خواهند سریع‌تر تایپ کنند؛ مخصوصاً
+کسانی که با متن فارسی یا فرمول ریاضی سروکار دارند.
+
+**حریم خصوصی:** هیچ داده‌ای جمع‌آوری یا ارسال نمی‌شود. تنها فایل‌های محلی:
+`~/.voice_typing_config.json` (تنظیمات) و `~/.voice_typing.log` (گزارش خطا).
+
+**پشته:** Python · faster-whisper · Vosk · Tkinter · PyAudio
+
+| | |
+|---|---|
+| **زبان** | Python 3.9+ |
+| **رابط** | Tkinter (بدون وابستگی سنگین UI) |
+| **تشخیص صدا** | faster-whisper · Vosk · (اختیاری) Google |
+| **لایسنس** | MIT |
+| **پلتفرم تست‌شده** | Windows |
+
 ---
 
 ## نصب
 
 ```bash
+git clone https://github.com/jafarfarzi-stack/voice-typing.git
+cd voice-typing
 pip install -r requirements.txt
 python app.py
 ```
@@ -22,6 +59,17 @@ python app.py
 
 ```bash
 pip install pyaudio numpy Pillow pyperclip pystray keyboard faster-whisper vosk
+```
+
+> **نکته (ویندوز):** اگر `pip install pyaudio` خطا داد،
+> [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)
+> را نصب کنید.
+
+### میان‌بر دسکتاپ (ویندوز)
+
+```powershell
+# در پوشه پروژه اجرا کنید
+powershell -ExecutionPolicy Bypass -File make_shortcut.ps1
 ```
 
 ---
@@ -223,3 +271,55 @@ pip install pyaudio
 ```
 %USERPROFILE%\.voice_typing.log
 ```
+
+---
+
+## Issues
+
+اگر مشکی دیدید یا پیشنهادی دارید، از
+[Issues](../../issues/new) استفاده کنید.
+
+**قبل از باز کردن issue، این‌ها را امتحان کنید:**
+
+| مشکل | راه‌حل سریع |
+|---|---|
+| دقت کم فارسی | موتور `whisper` با مدل `small` یا `medium` به‌جای `vosk` |
+| متن تکه‌تکه | «سکوت پایان جمله» را در تنظیمات کم کنید |
+| کلمه‌ها به هم چسبیده | همان مقدار را زیاد کنید |
+| صدا تشخیص داده نمی‌شود | دکمه «تست میکروفون» و نزدیک کردن میکروفون |
+| مدل نصب نمی‌شود | دکمه «مدل آفلاین» یا `python download_models.py --list` |
+| اعداد تبدیل نمی‌شوند | گزینه «اعداد به رقم» را بررسی کنید |
+
+**در issue این اطلاعات را بنویسید:**
+
+```
+- سیستم‌عامل و نسخه پایتون:
+- موتور و مدل انتخابی:
+- زبان (فارسی / English):
+- متنی که گفتید و خروجی گرفتید:
+- بخش مرتبط از لاگ:
+```
+
+لاگ: `%USERPROFILE%\.voice_typing.log`
+(نکته: لاگ ممکن است شامل متن‌های گفته‌شده باشد — قبل از کپی، پاکش کنید اگر محرمانه است.)
+
+**لطفاً قبل از ثبت issue جست‌وجو کنید** — شاید قبلاً مطرح شده باشد.
+
+---
+
+## مشارکت
+
+از pull request استقبال می‌شود.
+
+1. یک fork بسازید
+2. شاخه بسازید: `git checkout -b feature/my-change`
+3. تغییر بدهید و تست کنید
+4. commit با پیام روشن
+5. pull request بفرستید
+
+**قبل از PR:** `models/` و `__pycache__/` را commit نکنید (در `.gitignore` هستند).
+
+## لایسنس
+
+MIT — فایل [LICENSE](LICENSE).
+
