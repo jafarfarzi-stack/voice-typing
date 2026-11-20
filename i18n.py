@@ -141,6 +141,7 @@ FA = {
     "set_silence": "سکوت پایان جمله (ثانیه)",
     "set_min": "حداقل طول گفتار (ثانیه)",
     "set_max": "حداکثر طول جمله (ثانیه)",
+    "set_noise": "حساسیت میکروفون (کمتر = حساستر)",
     "set_hint": "مقادیر کوچک‌تر = پاسخ سریع‌تر ولی تکه‌تکه‌تر",
 
     # --- میکروفون ---
@@ -283,6 +284,7 @@ EN = {
     "set_silence": "End-of-sentence silence (sec)",
     "set_min": "Minimum speech length (sec)",
     "set_max": "Maximum phrase length (sec)",
+    "set_noise": "Microphone sensitivity (lower = more sensitive)",
     "set_hint": "Smaller values = faster but more fragmented",
 
     "mic_ok": "Microphone is fine — peak level: %(d)d",

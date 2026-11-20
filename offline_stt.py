@@ -123,6 +123,38 @@ def rms(frame_bytes):
     return float(np.sqrt(np.mean(arr**2)))
 
 
+def report_level(options, level):
+    """ارسال سطح صدا به رابط کاربری (برای نوار میکروفون)"""
+    callback = options.get("on_level")
+    if callback:
+        try:
+            callback(level)
+        except Exception:
+            log.exception("Level callback failed")
+
+
+def adaptive_floor(options, capture, should_stop=None, frames=4):
+    """
+    آستانه تشخیص گفتار را با صدای محیط تنظیم میکند.
+    مقدار پیکربندی‌شده حداقل است؛ اگر محیط پرسر و صدا باشد بالاتر میرود.
+    """
+    base = float(options.get("noise_floor", 80.0))
+    ambient = []
+    for _ in range(frames):
+        if should_stop and should_stop():
+            break
+        frame = capture.read()
+        if frame is None:
+            break
+        value = rms(frame)
+        ambient.append(value)
+        report_level(options, value)
+    if ambient:
+        ambient.sort()
+        base = max(base, ambient[len(ambient) // 2] * 1.5)
+    return base
+
+
 # --------------------------------------------------------------------- engines
 
 
@@ -162,8 +194,7 @@ class VoskEngine(BaseEngine):
     def __init__(self, lang="fa", model_dir=None, options=None):
         super().__init__(lang, model_dir, options)
         self.model = None
-        self._rec = None
-        self._noise = float(self.options.get("noise_floor", 300.0))
+        self._noise = float(self.options.get("noise_floor", 80.0))
 
     def _key(self):
         return "fa" if str(self.lang).startswith("fa") else "en"
@@ -204,9 +235,10 @@ class VoskEngine(BaseEngine):
         silence_needed = float(self.options.get("silence", 0.9))
         min_phrase = float(self.options.get("min_phrase", 0.4))
         max_phrase = float(self.options.get("phrase_limit", 14))
-        noise_floor = float(self.options.get("noise_floor", 300.0))
+        noise_floor = adaptive_floor(self.options, capture, should_stop)
 
-        self._rec = self._make_rec()
+        # جداگانه نگه میداریم تا بسته شدن موتور از رشته UI، transcribe را نشکند
+        rec = self._make_rec()
         words = []
         speech_seconds = 0.0
         silence_run = 0.0
@@ -219,18 +251,19 @@ class VoskEngine(BaseEngine):
                 return ""
 
             level = rms(frame)
+            report_level(self.options, level)
             speaking = level > noise_floor
 
             if speaking:
-                noise_floor = max(120.0, min(noise_floor, level * 0.4))
+                noise_floor = max(45.0, min(noise_floor, level * 0.4))
                 silence_run = 0.0
                 speech_seconds += FRAME_SECONDS
             elif speech_seconds > 0:
                 silence_run += FRAME_SECONDS
 
             # نتیجه نهایی داخلی Vosk را نگه می‌داریم و به تصمیم خودمان ادامه می‌دهیم
-            if self._rec.AcceptWaveform(frame):
-                payload = json.loads(self._rec.Result())
+            if rec.AcceptWaveform(frame):
+                payload = json.loads(rec.Result())
                 for item in payload.get("result", []):
                     word = str(item.get("word", "")).strip()
                     if word:
@@ -245,7 +278,7 @@ class VoskEngine(BaseEngine):
             if not long_enough or not (paused or speech_seconds >= max_phrase):
                 continue
 
-            partial = json.loads(self._rec.PartialResult()).get("partial", "")
+            partial = json.loads(rec.PartialResult()).get("partial", "")
             if partial.strip():
                 words.extend(partial.split())
 
@@ -253,13 +286,12 @@ class VoskEngine(BaseEngine):
             words = []
             speech_seconds = 0.0
             silence_run = 0.0
-            self._rec.Reset()
+            rec.Reset()
 
             if text:
                 return text
 
     def close(self):
-        self._rec = None
         self.model = None
         self._loaded = False
 
@@ -297,11 +329,12 @@ class WhisperEngine(BaseEngine):
         self._loaded = True
         return self
 
-    def _transcribe_array(self, audio):
+    def _transcribe_array(self, audio, model=None):
+        model = model or self.model
         lang_code = None if self.options.get("auto_lang") else (
             "fa" if self.lang.startswith("fa") else "en"
         )
-        segments, _info = self.model.transcribe(
+        segments, _info = model.transcribe(
             audio,
             language=lang_code,
             task="transcribe",
@@ -322,7 +355,8 @@ class WhisperEngine(BaseEngine):
         silence_needed = float(self.options.get("silence", 0.9))
         max_phrase = float(self.options.get("phrase_limit", 14))
         min_phrase = float(self.options.get("min_phrase", 0.4))
-        noise_floor = float(self.options.get("noise_floor", 300.0))
+        noise_floor = adaptive_floor(self.options, capture, should_stop)
+        model = self.model          # جداگانه نگه میداریم تا close() نشکند
         buf = []
         buf_seconds = 0.0
         silence_run = 0.0
@@ -335,10 +369,11 @@ class WhisperEngine(BaseEngine):
                 return ""
 
             level = rms(frame)
+            report_level(self.options, level)
             speaking = level > noise_floor
 
             if speaking:
-                noise_floor = max(120.0, min(noise_floor, level * 0.3))
+                noise_floor = max(45.0, min(noise_floor, level * 0.3))
                 silence_run = 0.0
                 buf.append(frame)
                 buf_seconds += FRAME_SECONDS
@@ -362,7 +397,7 @@ class WhisperEngine(BaseEngine):
             buf_seconds = 0.0
             silence_run = 0.0
             try:
-                text = self._transcribe_array(audio.astype(np.float32) / 32768.0)
+                text = self._transcribe_array(audio.astype(np.float32) / 32768.0, model)
             except Exception:
                 log.exception("Whisper transcribe failed")
                 text = ""
@@ -399,7 +434,8 @@ class GoogleEngine(BaseEngine):
 
         timeout = float(self.options.get("timeout", 5))
         phrase_limit = float(self.options.get("phrase_limit", 14))
-        noise_floor = float(self.options.get("noise_floor", 300.0))
+        noise_floor = adaptive_floor(self.options, capture, should_stop)
+        recognizer = self._rec   # جداگانه نگه میداریم تا close() نشکند
 
         deadline = time.time() + timeout
         audio_bytes = []
@@ -414,8 +450,9 @@ class GoogleEngine(BaseEngine):
 
             audio_bytes.append(frame)
             level = rms(frame)
+            report_level(self.options, level)
             if level > noise_floor:
-                noise_floor = max(120.0, min(noise_floor, level * 0.3))
+                noise_floor = max(45.0, min(noise_floor, level * 0.3))
                 silent = 0.0
             else:
                 silent += FRAME_SECONDS
@@ -431,7 +468,7 @@ class GoogleEngine(BaseEngine):
         raw = self._sr.AudioData(b"".join(audio_bytes), SAMPLE_RATE, 2)
         code = "fa-IR" if str(self.lang).startswith("fa") else "en-US"
         try:
-            text = self._rec.recognize_google(raw, language=code)
+            text = recognizer.recognize_google(raw, language=code)
         except self._sr.UnknownValueError:
             return ""
         except self._sr.RequestError:

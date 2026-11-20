@@ -92,12 +92,13 @@ class Config:
         "silence": 0.9,
         "min_phrase": 0.4,
         "phrase_limit": 14,
+        "noise_floor": 80,          # آستانه میکروفون؛ کمتر = حساستر
         "auto_lang": False,
         "model_dir": "",           # خالی = ~/.voice_typing_models
         "model_migrated": False,
     }
 
-    NUMERIC = {"silence", "min_phrase", "phrase_limit"}
+    NUMERIC = {"silence", "min_phrase", "phrase_limit", "noise_floor"}
 
     def __init__(self, path=CONFIG_PATH):
         self.path = path
@@ -401,7 +402,12 @@ class VoiceApp:
         )
         self.status.pack(fill="x", pady=2, ipady=2)
 
-        self.spinner = ttk.Progressbar(self.root, mode="indeterminate", length=160)
+        # نوار سطح میکروفون — موقع گوش دادن صدای ورودی را نشان میدهد
+        self.level_var = tk.DoubleVar(value=0.0)
+        self.spinner = ttk.Progressbar(
+            self.root, mode="determinate", length=160, maximum=100,
+            variable=self.level_var,
+        )
         self.spinner.pack(fill="x", padx=50, pady=(0, 2))
 
         # ---------- دکمه‌ها ----------
@@ -584,19 +590,29 @@ class VoiceApp:
     def _set_status(self, text, color=None):
         self._post(self.status.config, text=text, fg=color or COLORS["primary"])
 
+    def _on_level(self, level):
+        """سطح صدای میکروفون را به نوار نمایش میدهد"""
+        value = min(100.0, float(level) * 100.0 / 1500.0)
+        self._post(self.level_var.set, value)
+
     def _set_listening_ui(self, on):
         self._post(
             self.btn.config,
             text=i18n.tr("btn_stop" if on else "btn_start", self.lang.get()),
             bg=COLORS["danger"] if on else COLORS["primary"],
         )
-        # Progressbar یک شیء است، نه تابع؛ باید متدش را صدا بزنیم
-        self._post(self.spinner.start if on else self.spinner.stop)
+        # وقتی متوقف شد، نوار سطح میکروفون را صفر کن
+        if not on:
+            self._post(self.level_var.set, 0.0)
 
     def _on_engine_change(self, _event=None):
         self.engine_name = self.engine_var.get()
         self.config["engine"] = self.engine_name
         self.config.save()
+        # اگر در حال گوش دادن است، اول متوقف کن؛ بستن موتور از روی رشته UI
+        # موقع کار رشته ضبط باعث خطای AcceptWaveform میشد
+        if self.is_listening:
+            self.stop()
         self._release_engine()
         self._update_subtitle()
         self._set_status(self._engine_status_text())
@@ -616,6 +632,8 @@ class VoiceApp:
             "silence": float(self.config["silence"]),
             "min_phrase": float(self.config["min_phrase"]),
             "phrase_limit": float(self.config["phrase_limit"]),
+            "noise_floor": float(self.config["noise_floor"]),
+            "on_level": self._on_level,
             "auto_lang": bool(self.auto_lang.get()),
             "timeout": 5.0,
         }
@@ -1123,11 +1141,13 @@ class VoiceApp:
         silence = tk.StringVar(value=str(self.config["silence"]))
         min_phrase = tk.StringVar(value=str(self.config["min_phrase"]))
         phrase = tk.StringVar(value=str(self.config["phrase_limit"]))
+        noise = tk.StringVar(value=str(self.config["noise_floor"]))
 
         rows = [
             ("set_silence", silence, 0.3, 3.0),
             ("set_min", min_phrase, 0.2, 3.0),
             ("set_max", phrase, 5, 60),
+            ("set_noise", noise, 20, 400),
         ]
         for i, (key, var, lo, hi) in enumerate(rows, start=1):
             tk.Label(
@@ -1135,19 +1155,20 @@ class VoiceApp:
             ).grid(row=i, column=0, sticky="e", pady=5, padx=8)
             tk.Spinbox(
                 frame, from_=lo, to=hi, increment=0.1, textvariable=var, width=9,
-                font=FONT, state="readonly",
+                font=FONT,
             ).grid(row=i, column=1, pady=5)
 
         tk.Label(
             frame, text=i18n.tr("set_hint", ui),
             bg=COLORS["bg"], fg=COLORS["muted"], font=("Tahoma", 9),
-        ).grid(row=4, column=0, columnspan=2, pady=(10, 0))
+        ).grid(row=5, column=0, columnspan=2, pady=(10, 0))
 
         def apply_and_close():
             try:
                 self.config["silence"] = float(silence.get())
                 self.config["min_phrase"] = float(min_phrase.get())
                 self.config["phrase_limit"] = float(phrase.get())
+                self.config["noise_floor"] = float(noise.get())
                 self.config.save()
                 self._set_status(self._t("st_settings_saved"), COLORS["ok"])
                 win.destroy()
