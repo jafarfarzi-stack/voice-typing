@@ -28,6 +28,9 @@ import offline_stt
 
 APP_NAME = "تایپ صوتی"
 BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    # در نسخه exe، __file__ داخل پوشه موقت PyInstaller است
+    BASE_DIR = Path(sys.executable).resolve().parent
 CONFIG_PATH = Path.home() / ".voice_typing_config.json"
 LOG_PATH = Path.home() / ".voice_typing.log"
 

@@ -12,11 +12,14 @@
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import model_download as md
 
 APP_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    APP_DIR = Path(sys.executable).resolve().parent
 LEGACY_MODEL_DIR = APP_DIR / "models"
 USER_MODEL_DIR = Path.home() / ".voice_typing_models"
 

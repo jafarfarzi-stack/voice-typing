@@ -33,7 +33,8 @@ if errorlevel 1 goto :fail
 echo.
 echo Done: %CD%\dist\VoiceTyping\VoiceTyping.exe
 echo Copy the whole dist\VoiceTyping folder next to your portable zip.
-echo Models are stored in: %%USERPROFILE%%\.voice_typing_models
+echo   For the old single-file exe: copy portable_models.bat next to it
+echo   and run it once to link its models folder to %%USERPROFILE%%\.voice_typing_models.
 pause
 exit /b 0
 

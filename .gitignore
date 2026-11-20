@@ -6,6 +6,7 @@ models/
 # --- خروجی ساخت (exe) ---
 build/
 dist/
+dist-final/
 *.spec
 *.exe
 *.msi
