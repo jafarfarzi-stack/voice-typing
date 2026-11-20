@@ -121,10 +121,15 @@ echo   Start:    "Voice Typing" shortcut on your desktop
 echo   Hotkey:   F8
 echo.
 echo   First run asks whether to download a speech model.
+echo   Models are kept in a fixed folder outside this one:
+echo     %%USERPROFILE%%\.voice_typing_models
+echo   Re-extracting this zip will not delete them.
+echo   Use the "Model folder" button to copy models anywhere (e.g. D:\VoiceTyping-Portable).
 echo   After that no internet is needed.
 echo.
 echo   Remove everything:  run uninstall.bat
 echo.
+if not exist "%USERPROFILE%\.voice_typing_models" mkdir "%USERPROFILE%\.voice_typing_models" >nul 2>&1
 pause
 
 start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0app.py"

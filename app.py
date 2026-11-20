@@ -5,6 +5,7 @@ Voice Typing App - Persian & English, offline speech-to-text
 
 import json
 import logging
+import os
 import queue
 import sys
 import threading
@@ -21,6 +22,7 @@ from PIL import Image, ImageDraw
 import i18n
 import math_symbols
 import model_download
+import model_paths
 import number_converter
 import offline_stt
 
@@ -28,7 +30,6 @@ APP_NAME = "تایپ صوتی"
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = Path.home() / ".voice_typing_config.json"
 LOG_PATH = Path.home() / ".voice_typing.log"
-MODEL_DIR = BASE_DIR / "models"
 
 LANGS = {"fa-IR": "fa-IR", "en-US": "en-US"}
 
@@ -89,6 +90,8 @@ class Config:
         "min_phrase": 0.4,
         "phrase_limit": 14,
         "auto_lang": False,
+        "model_dir": "",           # خالی = ~/.voice_typing_models
+        "model_migrated": False,
     }
 
     NUMERIC = {"silence", "min_phrase", "phrase_limit"}
@@ -219,6 +222,14 @@ class VoiceApp:
         self.hotkeys = HotkeyManager()
         self.commands = CommandTable()
 
+        # مدلها در مسیر پایدار بیرون از پوشه برنامه نگهداری میشوند
+        self.model_dir, handled = model_paths.migrate_if_needed(self.config.data)
+        if handled:
+            self.config["model_migrated"] = True
+            self.config.save()
+        model_paths.ensure_dir(self.model_dir)
+        log.info("Model folder: %s", self.model_dir)
+
         self.engine = None
         self.engine_name = self.config["engine"]
         self.ui_queue = queue.Queue()
@@ -259,7 +270,7 @@ class VoiceApp:
 
     def _model_ready(self):
         return offline_stt.model_status(
-            self.engine_name, self.lang.get(), self.size_var.get(), MODEL_DIR
+            self.engine_name, self.lang.get(), self.size_var.get(), self.model_dir
         )["ready"]
 
     def _setup_window(self):
@@ -423,6 +434,11 @@ class VoiceApp:
             bd=1, command=self.prompt_model_download, cursor="hand2",
         )
         self._btn["btn_model"].pack(side="left", padx=4)
+        self._btn["btn_model_folder"] = tk.Button(
+            foot, text="", font=FONT, bg=COLORS["white"], relief="flat",
+            bd=1, command=self.show_model_folder, cursor="hand2",
+        )
+        self._btn["btn_model_folder"].pack(side="left", padx=4)
         self._btn["btn_mic_test"] = tk.Button(
             foot, text="", font=FONT, bg=COLORS["white"], relief="flat",
             bd=1, command=self.test_microphone, cursor="hand2",
@@ -446,7 +462,7 @@ class VoiceApp:
         for key in (
             "btn_copy", "btn_clear", "btn_undo", "btn_save", "btn_open",
             "btn_settings", "btn_minimize", "btn_help", "btn_model",
-            "btn_mic_test", "hotkey_set",
+            "btn_model_folder", "btn_mic_test", "hotkey_set",
         ):
             if key in self._btn:
                 self._btn[key].config(text=i18n.tr(key, lang))
@@ -509,7 +525,7 @@ class VoiceApp:
             self.subtitle.config(text=self._t("sub_online"), fg=COLORS["danger"])
             return
         info = offline_stt.model_status(
-            self.engine_name, self.lang.get(), self.size_var.get(), MODEL_DIR
+            self.engine_name, self.lang.get(), self.size_var.get(), self.model_dir
         )
         name = self._model_display(info)
         if info["ready"]:
@@ -602,7 +618,7 @@ class VoiceApp:
         }
         log.info("Building engine %s (size=%s)", name, size)
         return offline_stt.build_engine(
-            name, lang=self.lang.get(), model_dir=MODEL_DIR, options=options
+            name, lang=self.lang.get(), model_dir=self.model_dir, options=options
         )
 
     def _release_engine(self):
@@ -663,7 +679,7 @@ class VoiceApp:
         """پرسیدن از کاربر برای دانلود مدل"""
         engine = self.engine_var.get()
         size = self.size_var.get()
-        info = offline_stt.model_status(engine, self.lang.get(), size, MODEL_DIR)
+        info = offline_stt.model_status(engine, self.lang.get(), size, self.model_dir)
 
         if not messagebox.askyesno(
             self._t("dl_title"),
@@ -736,7 +752,7 @@ class VoiceApp:
         def worker():
             try:
                 model_download.ensure(
-                    engine, lang, size, MODEL_DIR,
+                    engine, lang, size, self.model_dir,
                     on_status=on_status, on_progress=on_progress,
                     should_stop=done.is_set,
                 )
@@ -1183,12 +1199,12 @@ class VoiceApp:
         engine = self.engine_var.get()
         size = self.size_var.get()
         lang = self.lang.get()
-        info = offline_stt.model_status(engine, lang, size, MODEL_DIR)
+        info = offline_stt.model_status(engine, lang, size, self.model_dir)
 
         if info["ready"]:
             other = [
                 s for s in model_download.WHISPER_SIZES
-                if s != size and not model_download.whisper_installed(MODEL_DIR, s)
+                if s != size and not model_download.whisper_installed(self.model_dir, s)
             ]
             extra = (
                 i18n.tr("info_model_more", ui, s=", ".join(other))
@@ -1205,9 +1221,159 @@ class VoiceApp:
             self._set_status(self._t("st_model_ready"), COLORS["ok"])
         self._update_subtitle()
 
+    def show_model_folder(self):
+        """پوشه ثابت مدلها: تغییر مسیر، کپی مدلها، باز کردن پوشه"""
+        ui = self.lang.get()
+        win = tk.Toplevel(self.root)
+        win.title(i18n.tr("mf_title", ui))
+        win.geometry("680x420")
+        win.configure(bg="white")
+        win.transient(self.root)
+        win.resizable(False, False)
+        win.attributes("-topmost", True)
+
+        path_var = tk.StringVar(value=str(self.model_dir))
+        info_var = tk.StringVar(value="")
+        status_var = tk.StringVar(value="")
+
+        tk.Label(
+            win, text=i18n.tr("mf_intro", ui), bg="white", fg=COLORS["text"],
+            font=FONT, justify="left", wraplength=640,
+        ).pack(pady=(16, 6), padx=20, anchor="w")
+
+        box = tk.LabelFrame(
+            win, text=i18n.tr("mf_current", ui), bg="white", fg=COLORS["primary"],
+            font=("Tahoma", 10, "bold"), padx=10, pady=8,
+        )
+        box.pack(fill="x", padx=20, pady=4)
+        tk.Entry(
+            box, textvariable=path_var, font=("Tahoma", 9), bg="white",
+            relief="flat", highlightthickness=1,
+            highlightbackground=COLORS["border"], state="readonly",
+        ).pack(fill="x")
+        tk.Label(
+            box, textvariable=info_var, bg="white", fg=COLORS["muted"],
+            font=("Tahoma", 9), wraplength=640, justify="left",
+        ).pack(anchor="w", pady=(6, 0))
+
+        tk.Label(
+            win, textvariable=status_var, bg="white", fg=COLORS["ok"],
+            font=FONT, wraplength=640, justify="left",
+        ).pack(fill="x", padx=20, pady=6)
+
+        def refresh():
+            path_var.set(str(self.model_dir))
+            names = model_paths.installed_summary(self.model_dir)
+            if names:
+                text = i18n.tr("mf_models", ui, s=", ".join(names))
+            else:
+                text = i18n.tr("mf_none", ui)
+            info_var.set(text)
+            self._update_subtitle()
+
+        def copy_between(src, dst, after=None):
+            def run():
+                self._post(status_var.set, i18n.tr("mf_copying", ui))
+                try:
+                    result = model_paths.copy_models(src, dst)
+                    self._post(
+                        status_var.set,
+                        i18n.tr("mf_copied", ui, d=result["copied"], k=result["skipped"]),
+                    )
+                    self._post(refresh)
+                    if after:
+                        self._post(after)
+                except Exception as exc:
+                    log.exception("Model copy failed")
+                    self._post(status_var.set, i18n.tr("mf_copy_fail", ui, s=str(exc)))
+
+            threading.Thread(target=run, daemon=True, name="model-copy").start()
+
+        def apply_folder(target, remember=True):
+            if remember:
+                self.config["model_dir"] = str(target)
+                self.config["model_migrated"] = True
+            else:
+                self.config["model_dir"] = ""
+                self.config["model_migrated"] = True
+            self.config.save()
+            self.model_dir = target
+            model_paths.ensure_dir(target)
+            self._release_engine()
+            refresh()
+
+        def choose_folder():
+            chosen = filedialog.askdirectory(
+                parent=win, initialdir=str(self.model_dir),
+                title=i18n.tr("mf_choose", ui),
+            )
+            if not chosen:
+                return
+            target = model_paths.expand(chosen)
+            if target == self.model_dir:
+                return
+            if messagebox.askyesno(i18n.tr("mf_title", ui), i18n.tr("mf_copy_ask", ui), parent=win):
+                copy_between(self.model_dir, target, lambda: apply_folder(target))
+            else:
+                apply_folder(target)
+
+        def copy_from():
+            src = filedialog.askdirectory(parent=win, title=i18n.tr("mf_from", ui))
+            if src:
+                copy_between(src, self.model_dir)
+
+        def copy_to():
+            dst = filedialog.askdirectory(parent=win, title=i18n.tr("mf_to", ui))
+            if dst:
+                copy_between(self.model_dir, dst)
+
+        def reset_folder():
+            target = model_paths.default_dir()
+            if target == self.model_dir:
+                return
+            if messagebox.askyesno(i18n.tr("mf_title", ui), i18n.tr("mf_copy_ask", ui), parent=win):
+                copy_between(self.model_dir, target, lambda: apply_folder(target, remember=False))
+            else:
+                apply_folder(target, remember=False)
+
+        def open_folder():
+            try:
+                if hasattr(os, "startfile"):
+                    os.startfile(str(self.model_dir))
+                else:
+                    import subprocess
+                    subprocess.Popen(["xdg-open", str(self.model_dir)])
+            except Exception:
+                log.exception("Open model folder failed")
+                self._post(status_var.set, str(self.model_dir))
+
+        buttons = [
+            ("mf_change", choose_folder),
+            ("mf_open", open_folder),
+            ("mf_from", copy_from),
+            ("mf_to", copy_to),
+            ("mf_reset", reset_folder),
+            ("help_ok", win.destroy),
+        ]
+        bar = tk.Frame(win, bg="white")
+        bar.pack(pady=14)
+        for key, command in buttons:
+            primary = key == "help_ok"
+            tk.Button(
+                bar, text=i18n.tr(key, ui), font=FONT, command=command,
+                bg=COLORS["primary"] if primary else COLORS["panel"],
+                fg="white" if primary else COLORS["text"],
+                relief="flat", bd=1, padx=8, pady=4,
+            ).pack(side="right" if i18n.is_rtl(ui) else "left", padx=4)
+
+        refresh()
+        win.transient(self.root)
+        win.grab_set()
+        win.focus_force()
+
     def show_download_help(self):
         ui = self.lang.get()
-        text = i18n.model_help_text(ui) + "\n" + str(MODEL_DIR)
+        text = i18n.model_help_text(ui) + "\n" + str(self.model_dir)
         win = tk.Toplevel(self.root)
         win.title(i18n.tr("model_title", ui))
         win.geometry("640x470")

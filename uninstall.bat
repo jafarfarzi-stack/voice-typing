@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 title Voice Typing - Uninstaller
 
@@ -11,11 +11,11 @@ echo.
 echo This will delete:
 echo   - the .venv folder (Python packages, about 500 MB)
 echo   - the desktop shortcut
-echo   - downloaded models in the models folder
 echo.
-echo Your text, settings and log are kept:
+echo Your text, settings, log and downloaded models are KEPT:
 echo   %%USERPROFILE%%\.voice_typing_config.json
 echo   %%USERPROFILE%%\.voice_typing.log
+echo   %%USERPROFILE%%\.voice_typing_models  (persistent model folder)
 echo.
 set /p OK="Delete the .venv folder and shortcut? [y/N] "
 if /i not "%OK%"=="y" (
@@ -42,15 +42,17 @@ if exist ".venv" (
 )
 
 if exist "models" (
-    set /p DELMODELS="Delete downloaded models too? (frees about 50-500 MB) [y/N] "
+    set /p DELMODELS="Delete old models in the app folder too? (frees space) [y/N] "
     if /i "!DELMODELS!"=="y" (
-        echo Removing models ...
+        echo Removing app-folder models ...
         rmdir /s /q "models"
         echo Removed.
     ) else (
-        echo Models kept in the models folder.
+        echo App-folder models kept.
     )
 )
+echo.
+echo Models in %%USERPROFILE%%\.voice_typing_models are never removed by this script.
 
 echo.
 echo ============================================================

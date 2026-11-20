@@ -73,27 +73,57 @@ def whisper_path(model_dir, size):
 
 def whisper_installed(model_dir, size):
     path = whisper_path(model_dir, size)
-    return all((path / name).is_file() for name in WHISPER_FILES)
+    if not all((path / name).is_file() for name in WHISPER_FILES):
+        return False
+    # یک دانلود ناتمام قدیمی ممکن است فایلها را با حجم تقریباً صفر باقی بگذارد
+    try:
+        return (path / "model.bin").stat().st_size > 1024 * 1024
+    except OSError:
+        return False
 
 
 def download_whisper(model_dir, size, on_status=None, should_stop=None):
-    """دانلود مدل Whisper. گزارش پیشرفت از بیرون (اندازه پوشه) انجام می‌شود."""
+    """دانلود مدل Whisper. فقط بعد از کامل شدن، مدل جایگزین میشود."""
     from faster_whisper.utils import download_model
 
     target = whisper_path(model_dir, size)
-    target.mkdir(parents=True, exist_ok=True)
+    if whisper_installed(model_dir, size):
+        return target
+
+    # دانلود در پوشه موقت:hنگام بسته شدن ناگهانی، مدل ناقص در مسیر اصلی نماند
+    staging = target.parent / (".%s.download" % size)
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
 
     if on_status:
         on_status("دانلود مدل Whisper «%s» شروع شد…" % size)
     try:
-        download_model(size, output_dir=str(target))
+        download_model(size, output_dir=str(staging))
+        if should_stop and should_stop():
+            raise RuntimeError("دانلود لغو شد")
+        if not all((staging / name).is_file() for name in WHISPER_FILES):
+            raise RuntimeError("فایلهای مدل Whisper ناقص است")
+
+        backup = target.parent / (size + ".old")
+        shutil.rmtree(backup, ignore_errors=True)
+        if target.exists():
+            target.rename(backup)
+        try:
+            staging.rename(target)
+        except Exception:
+            if backup.exists():
+                backup.rename(target)
+            raise
+        shutil.rmtree(backup, ignore_errors=True)
     except Exception as exc:
         log.exception("Whisper download failed")
-        shutil.rmtree(target, ignore_errors=True)
+        shutil.rmtree(staging, ignore_errors=True)
+        if isinstance(exc, RuntimeError):
+            raise
         raise RuntimeError("دانلود مدل Whisper ناموفق بود: %s" % exc) from exc
 
     if not whisper_installed(model_dir, size):
-        raise RuntimeError("فایل‌های مدل Whisper ناقص است")
+        raise RuntimeError("فایلهای مدل Whisper ناقص است")
 
     if on_status:
         on_status("مدل Whisper «%s» آماده شد" % size)
@@ -109,7 +139,13 @@ def vosk_path(model_dir, lang):
 
 def vosk_installed(model_dir, lang):
     path = vosk_path(model_dir, lang)
-    return path.is_dir() and any(path.iterdir())
+    if not path.is_dir():
+        return False
+    # وجود یک فایل کوچک به معنای مدل کامل نیست
+    try:
+        return dir_size(path) > 1024 * 1024
+    except OSError:
+        return False
 
 
 def _http_download(url, dest, on_progress=None, should_stop=None):
@@ -146,6 +182,8 @@ def download_vosk(model_dir, lang, on_status=None, on_progress=None, should_stop
         on_status("دانلود مدل Vosk «%s» (~%dMB) …" % (label, mb))
 
     tmpdir = tempfile.mkdtemp(prefix="vosk_dl_")
+    staging = target_dir / (".%s.download" % folder)
+    shutil.rmtree(staging, ignore_errors=True)
     try:
         zip_path = Path(tmpdir) / fname
         _http_download(
@@ -156,8 +194,25 @@ def download_vosk(model_dir, lang, on_status=None, on_progress=None, should_stop
         )
         if on_status:
             on_status("در حال باز کردن فایل مدل…")
+        staging.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(target_dir)
+            zf.extractall(staging)
+        extracted = staging / folder
+        if not extracted.is_dir() or not any(extracted.iterdir()):
+            raise RuntimeError("پوشه مدل پس از باز کردن پیدا نشد")
+
+        # جایگذاری نهایی فقط بعد از استخراج کامل
+        backup = target_dir / (folder + ".old")
+        shutil.rmtree(backup, ignore_errors=True)
+        if target.exists():
+            target.rename(backup)
+        try:
+            extracted.rename(target)
+        except Exception:
+            if backup.exists():
+                backup.rename(target)
+            raise
+        shutil.rmtree(backup, ignore_errors=True)
     except Exception as exc:
         log.exception("Vosk download failed")
         if isinstance(exc, RuntimeError):
@@ -165,6 +220,7 @@ def download_vosk(model_dir, lang, on_status=None, on_progress=None, should_stop
         raise RuntimeError("دانلود مدل Vosk ناموفق بود: %s" % exc) from exc
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+        shutil.rmtree(staging, ignore_errors=True)
 
     if not target.is_dir():
         raise RuntimeError("پوشه مدل پس از باز کردن پیدا نشد")
