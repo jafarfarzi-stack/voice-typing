@@ -79,6 +79,16 @@ pip install pyaudio numpy Pillow pyperclip pystray keyboard faster-whisper vosk
 > [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist)
 > را نصب کنید.
 
+### ساخت exe تازه (با قابلیت پوشه ثابت)
+
+اگر Python دارید، `install.bat` را اجرا کنید تا محیط مجازی ساخته شود، سپس
+`build_exe.bat` را دابلکلیک کنید. خروجی در
+`dist\VoiceTyping\VoiceTyping.exe` است. **تمام پوشهٔ `dist\VoiceTyping`**
+را کنار هم کپی کنید (exe به تنهایی کار نمیکند).
+
+> نکته: مدلها در `~/.voice_typing_models` بیرون از پوشهٔ exe میمانند؛
+> پس استخراج مجدد زیپ، مدلها را پاک نمیکند.
+
 ### حذف نصب
 
 ```powershell
