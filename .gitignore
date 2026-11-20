@@ -7,6 +7,7 @@ models/
 build/
 dist/
 dist-final/
+dist-audio/
 *.spec
 *.exe
 *.msi
