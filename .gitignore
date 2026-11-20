@@ -8,6 +8,7 @@ build/
 dist/
 dist-final/
 dist-audio/
+dist-online/
 *.spec
 *.exe
 *.msi
