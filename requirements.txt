@@ -12,6 +12,6 @@ faster-whisper>=1.0
 # --- موتور آفلاین ۲: Vosk (سبک و سریع) ---
 vosk>=0.3.45
 
-# --- اختیاری ---
-# SpeechRecognition>=3.10   # فقط برای حالت آنلاین Google
+# --- حالت آنلاین Google (اختیاری، ولی در نسخه exe هست) ---
+SpeechRecognition>=3.10
 # python-docx>=1.1           # فقط برای خروجی Word

@@ -24,9 +24,11 @@ echo [2/2] Building VoiceTyping.exe ...
   --hidden-import=model_paths ^
   --hidden-import=faster_whisper --hidden-import=ctranslate2 ^
   --hidden-import=vosk --hidden-import=onnxruntime ^
+  --hidden-import=speech_recognition ^
   --hidden-import=pystray._win32 --hidden-import=keyboard._win32 ^
   --collect-all=faster_whisper --collect-all=ctranslate2 ^
   --collect-all=vosk --collect-all=onnxruntime ^
+  --collect-all=speech_recognition ^
   app.py
 if errorlevel 1 goto :fail
 
